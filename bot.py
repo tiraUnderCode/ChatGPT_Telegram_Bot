@@ -16,6 +16,15 @@ MODEL_ENGINE = "text-davinci-003"
 # Initialize Telegram Bot
 TOKEN_TELEGRAM_BOT = os.getenv("TELEGRAM_BOT_KEY")
 
+# Function to open error_log.txt and write the error message
+def write_error_to_file_txt(msg):
+    try:
+        with open("error_log.txt", "a") as file:
+            file.write(msg)
+    finally:
+        file.close()
+       
+
 # Constant template for chatbot prompt paragraph
 CHATBOT_PROMPT = """
 <conversation_history>
@@ -30,16 +39,24 @@ def get_response(conversation_history: str, user_input: str):
     try:
         response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
     except openai.OpenAIException as error:
-        with open("error_log.txt", "a") as file:
-            file.write(f"An error occurred while generating a response from OpenAI: {error}\n")
+        write_error_to_file_txt(f"An error occurred while 'generating' a response from OpenAI: {error}\n")
         return "I'm sorry, I was unable to generate a response. Please try again later!"
     
     # Extract the response from the response object
-    response_message_from_openai = """"""
+    response_message_from_openai = ""
     # print(response)
-    for response_text in response["choices"]:
-        response_message_from_openai += response_text["text"] + "\n"
+    try:
+        choices_from_response_openai = response["choices"]
+    except KeyError:
+        # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
+        write_error_to_file_txt(f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices': {response}\n")
+        return "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
+        
+    # Return the response
+    for response_text in choices_from_response_openai:
+            response_message_from_openai += response_text["text"] + "\n"
     return response_message_from_openai.strip()
+    
 
 # Create history for the conversation paragraph with chatbot
 conversation_history = """"""
