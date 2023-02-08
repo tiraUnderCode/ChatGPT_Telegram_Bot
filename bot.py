@@ -25,10 +25,18 @@ Chatbot:"""
 def get_response(conversation_history: str, user_input: str):
     prompt = CHATBOT_PROMPT.replace(
         "<conversation_history>", conversation_history).replace("<user input>", user_input)
-    # Get the response from chatbot GPT-3
-    response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
+    
+    #Try to get the response from chatbot GPT-3
+    try:
+        response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
+    except openai.OpenAIException as error:
+        with open("error_log.txt", "a") as file:
+            file.write(f"An error occurred while generating a response from OpenAI: {error}\n")
+        return "I'm sorry, I was unable to generate a response. Please try again later!"
+    
     # Extract the response from the response object
     response_message_from_openai = """"""
+    # print(response)
     for response_text in response["choices"]:
         response_message_from_openai += response_text["text"] + "\n"
     return response_message_from_openai.strip()
@@ -54,7 +62,7 @@ def chat_msg_handler(update: Update, context: CallbackContext):
 
 # Define the start command
 def start_command(update: Update, context: CallbackContext):
-    update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today?")
+    update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today? '/help' for more info!")
     
 # Define the help command
 def help_command(update: Update, context: CallbackContext):
