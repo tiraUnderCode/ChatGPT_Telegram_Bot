@@ -17,14 +17,13 @@ MODEL_ENGINE = "text-davinci-003"
 TOKEN_TELEGRAM_BOT = os.getenv("TELEGRAM_BOT_KEY")
 
 # Function to open error_log.txt and write the error message
-def write_error_to_file_txt(msg):
+def write_log_to_file_txt(file_name: str, msg: str):
     try:
-        with open("error_log.txt", "a") as file:
+        with open(file_name, "a") as file:
             file.write(msg)
     finally:
         file.close()
        
-
 # Constant template for chatbot prompt paragraph
 CHATBOT_PROMPT = """
 <conversation_history>
@@ -38,28 +37,28 @@ def get_response(conversation_history: str, user_input: str):
     #Try to get the response from chatbot GPT-3
     try:
         response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
-    except openai.OpenAIException as error:
-        write_error_to_file_txt(f"An error occurred while 'generating' a response from OpenAI: {error}\n")
+        # raise openai.error.APIConnectionError("Connect to openai failed!")
+    except Exception as error:
+        error_msg = f"An error occurred while generating a response from OpenAI: {error}\n"
+        write_log_to_file_txt("error_log.txt", error_msg)
         return "I'm sorry, I was unable to generate a response. Please try again later!"
     
     # Extract the response from the response object
     response_message_from_openai = ""
-    # print(response)
     try:
         choices_from_response_openai = response["choices"]
     except KeyError:
         # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
-        write_error_to_file_txt(f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices': {response}\n")
+        write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices': {response}\n")
         return "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
         
     # Return the response
-    for response_text in choices_from_response_openai:
-            response_message_from_openai += response_text["text"] + "\n"
-    return response_message_from_openai.strip()
+    response_message_from_openai = choices_from_response_openai[0]["text"].strip()
+    return response_message_from_openai
     
 
 # Create history for the conversation paragraph with chatbot
-conversation_history = """"""
+conversation_history = ""
 # Define the chat message handler
 def chat_msg_handler(update: Update, context: CallbackContext):
     global conversation_history
@@ -71,8 +70,7 @@ def chat_msg_handler(update: Update, context: CallbackContext):
     conversation_history += f"User: {message_text_from_user}\nChatbot: {reply_msg_from_openai}\n"
     
     # Appending new conversation to the file history conversation
-    with open("history_conversation.txt", "a") as file:
-        file.write(new_conversation_to_write_to_file_text)
+    write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)
     # Overwrite the history conversation with new history conversation
     # with open("history_conversation.txt", "w") as file:
     #     file.write(conversation_history)
@@ -93,8 +91,9 @@ def end_command(update: Update, context: CallbackContext):
 # Define the error handler
 def error_handler(update: Update, context: CallbackContext):
     # Time fit to GMT+3
-    time_offset = timedelta(hours=3)
-    current_time = (datetime.now() + time_offset).strftime("%H:%M:%S %d-%m-%Y")
+    # time_offset = timedelta(hours=3)
+    # current_time = (datetime.now() + time_offset).strftime("%H:%M:%S %d-%m-%Y")
+    current_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
     error_msg = f"ERROR: {context.error} caused by {update} - at {current_time}"
     with open("error_log.txt", "a") as file:
         file.write(f"{error_msg}\n")
