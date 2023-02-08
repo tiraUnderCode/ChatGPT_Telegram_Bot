@@ -46,7 +46,8 @@ def get_response(conversation_history: str, user_input: str):
         response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
         # raise openai.error.APIConnectionError("Connect to openai failed!")
     except Exception as error:
-        error_msg = f"An error occurred while generating a response from OpenAI - at {show_time_now()}: {error}\n"
+        current_time = show_time_now()
+        error_msg = f"An error occurred while generating a response from OpenAI - at {current_time}: {error}\n"
         write_log_to_file_txt("error_log.txt", error_msg)
         return "I'm sorry, I was unable to generate a response. Please try again later!"
     
@@ -55,8 +56,9 @@ def get_response(conversation_history: str, user_input: str):
     try:
         choices_from_response_openai = response["choices"]
     except KeyError:
+        current_time = show_time_now()
         # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
-        write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {show_time_now()}: {response}\n")
+        write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
         return "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
         
     # Return the response
@@ -97,7 +99,8 @@ def end_command(update: Update, context: CallbackContext):
     
 # Define the error handler
 def error_handler(update: Update, context: CallbackContext):
-    error_msg = f"ERROR: {context.error} caused by {update} - at {show_time_now()}"
+    current_time = show_time_now()
+    error_msg = f"ERROR: {context.error} caused by {update} - at {current_time}"
     write_log_to_file_txt("error_log.txt", error_msg)
     
 # Define the main function
