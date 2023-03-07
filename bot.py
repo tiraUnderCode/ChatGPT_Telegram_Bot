@@ -30,7 +30,6 @@ def get_response(CONVERSATIONS: list, user_input: str): # Define the function to
     CONVERSATIONS.append({'role':'user', 'content':user_input})
     try: #Try to get the response from chatbot GPT-3
         response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=3000,top_p=0.8)
-        print(response)
         # raise openai.error.APIConnectionError("Connect to openai failed!")
     except Exception as error:
         current_time = show_time_now()

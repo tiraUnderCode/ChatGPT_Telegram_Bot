@@ -1,2 +1,5 @@
 .env
 test_1.py
+script_bash.sh
+error_log.txt
+history_conversation.txt
