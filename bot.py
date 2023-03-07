@@ -5,111 +5,77 @@ import requests
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, Message, CallbackQuery
 from telegram.ext import Updater, InlineQueryHandler, CommandHandler, CallbackQueryHandler, MessageHandler, CallbackContext, Filters, ConversationHandler
+import time
 
 from dotenv import load_dotenv
 load_dotenv()
 
-# Initialize OpenAI API
-openai.api_key = os.getenv("OPENAI_API_KEY")
-MODEL_ENGINE = "text-davinci-003"
+openai.api_key = os.getenv("OPENAI_API_KEY") # Initialize OpenAI API
+MODEL_ENGINE = "gpt-3.5-turbo"
 
-# Initialize Telegram Bot
-TOKEN_TELEGRAM_BOT = os.getenv("TELEGRAM_BOT_KEY")
+TOKEN_TELEGRAM_BOT = os.getenv("TELEGRAM_BOT_KEY") # Initialize Telegram Bot
 
-# Function to show the time at the moment
-def show_time_now():
-    # Time fit to GMT+3
-    time_offset = timedelta(hours=3)
+def show_time_now(): # Function to show the time at the moment
+    time_offset = timedelta(hours=3) # Time fit to GMT+3
     current_time = (datetime.now() + time_offset).strftime("%H:%M:%S %d-%m-%Y")
     return current_time
 
-# Function to open error_log.txt and write the error message
-def write_log_to_file_txt(file_name: str, msg: str):
-    try:
-        with open(file_name, "a") as file:
-            file.write(msg)
-    finally:
-        file.close()
-       
-# Constant template for chatbot prompt paragraph
-CHATBOT_PROMPT = """
-<conversation_history>
-User: <user input>
-Chatbot:"""
-# Define the function to get the response from the chat bot
-def get_response(conversation_history: str, user_input: str):
-    prompt = CHATBOT_PROMPT.replace(
-        "<conversation_history>", conversation_history).replace("<user input>", user_input)
-    
-    #Try to get the response from chatbot GPT-3
-    try:
-        response = openai.Completion.create(engine=MODEL_ENGINE, prompt=prompt, max_tokens=2048, n=1, stop=None, temperature=0.65)
+def write_log_to_file_txt(file_name: str, msg: str): # Function to open error_log.txt and write the error message
+    with open(file_name, "a") as file:
+        file.write(msg)
+
+# Constant conversation 
+CONVERSATIONS = []
+def get_response(CONVERSATIONS: list, user_input: str): # Define the function to get the response from the chat bot
+    CONVERSATIONS.append({'role':'user', 'content':user_input})
+    try: #Try to get the response from chatbot GPT-3
+        response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=3000,top_p=0.8)
+        print(response)
         # raise openai.error.APIConnectionError("Connect to openai failed!")
     except Exception as error:
         current_time = show_time_now()
         error_msg = f"An error occurred while generating a response from OpenAI - at {current_time}: {error}\n"
         write_log_to_file_txt("error_log.txt", error_msg)
-        return "I'm sorry, I was unable to generate a response. Please try again later!"
+        return "System", "I'm sorry, I was unable to generate a response. Please try again later!"
     
-    # Extract the response from the response object
-    response_message_from_openai = ""
     try:
         choices_from_response_openai = response["choices"]
-    except KeyError:
+    except KeyError: # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
         current_time = show_time_now()
-        # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
         write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
-        return "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
+        return "System", "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
         
-    # Return the response
-    response_message_from_openai = choices_from_response_openai[0]["text"].strip()
-    return response_message_from_openai
+    return choices_from_response_openai[0].message.role, choices_from_response_openai[0].message.content
     
-
-# Create history for the conversation paragraph with chatbot
-conversation_history = ""
-# Define the chat message handler
-def chat_msg_handler(update: Update, context: CallbackContext):
-    global conversation_history
+def chat_msg_handler(update: Update, context: CallbackContext): # Define the chat message handler
+    global CONVERSATIONS
     message_text_from_user = update.message.text
-    reply_msg_from_openai = get_response(conversation_history, message_text_from_user)
-    # Send the response to the user
-    update.message.reply_text(reply_msg_from_openai)
+    role, reply_msg_from_openai = get_response(CONVERSATIONS, message_text_from_user)
+    CONVERSATIONS.append({'role':role.strip(), 'content':reply_msg_from_openai.strip()})
+    update.message.reply_text(reply_msg_from_openai) # Send the response to the user
     new_conversation_to_write_to_file_text = f"User '@{update.message.from_user.username}': {message_text_from_user}\nChatbot GPT-3: {reply_msg_from_openai}\n"
-    conversation_history += f"User: {message_text_from_user}\nChatbot: {reply_msg_from_openai}\n"
-    
-    # Appending new conversation to the file history conversation
-    write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)
-    # Overwrite the history conversation with new history conversation
-    # with open("history_conversation.txt", "w") as file:
-    #     file.write(conversation_history)
+    write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)  # Appending new conversation to the file history conversation
 
-# Define the start command
-def start_command(update: Update, context: CallbackContext):
+def start_command(update: Update, context: CallbackContext): # Define the start command
     update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today? '/help' for more info!")
     
-# Define the help command
-def help_command(update: Update, context: CallbackContext):
+def help_command(update: Update, context: CallbackContext): # Define the help command
     update.message.reply_text("I am a bot that can help you with the following commands: \n /start - Start the bot \n /help - Get this message :))) \n /end - End talking with the bot \nYou just need to write your message and I'll give you a response!")
     
-# Define the end command to end the conversation
-def end_command(update: Update, context: CallbackContext):
+def end_command(update: Update, context: CallbackContext): # Define the end command to end the conversation
     update.message.reply_text("Bye! I hope we can talk again soon!")
     return ConversationHandler.END
     
-# Define the error handler
-def error_handler(update: Update, context: CallbackContext):
+def error_handler(update: Update, context: CallbackContext): # Define the error handler
     current_time = show_time_now()
     error_msg = f"ERROR: {context.error} caused by {update} - at {current_time}"
     write_log_to_file_txt("error_log.txt", error_msg)
     
 # Define the main function
 def main():
-    # Create the Updater and pass it the bot's token
-    updater: Updater = Updater(token=TOKEN_TELEGRAM_BOT, use_context=True)
+    updater: Updater = Updater(token=TOKEN_TELEGRAM_BOT, use_context=True) # Create the Updater and pass it the bot's token
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    dispatcher = updater.dispatcher # Get the dispatcher to register handlers
 
      # Add the start handler to the dispatcher
     start_command_handler = CommandHandler("start", start_command)
@@ -130,11 +96,10 @@ def main():
     # Add the error handler to the dispatcher
     dispatcher.add_error_handler(error_handler)
     
-    # Start the bot
-    updater.start_polling()
+    updater.start_polling() # Start the bot
     
-    # Keep the bot running until being interrupted
-    updater.idle()
+    updater.idle() # Keep the bot running until being interrupted
 
 if __name__ == "__main__":
     main()
+    
