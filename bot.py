@@ -24,40 +24,41 @@ def write_log_to_file_txt(file_name: str, msg: str): # Function to open error_lo
     with open(file_name, "a") as file:
         file.write(msg)
 
-# Constant conversation 
-CONVERSATIONS = []
-def reset_conversations(): 
-    global CONVERSATIONS
-    if(len(CONVERSATIONS) > 10): # The bot remembers 5 last questions, 5 last answers in the conversation then reset
-        CONVERSATIONS.clear()
-
-def get_response(CONVERSATIONS: list, user_input: str): # Define the function to get the response from the chat bot
-    CONVERSATIONS.append({'role':'user', 'content':user_input})
-    try: #Try to get the response from chatbot GPT-3.5-turbo
-        response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596,top_p=0.8)
-        # raise openai.error.APIConnectionError("Connect to openai failed!")
-    except Exception as error:
-        CONVERSATIONS.clear() # Clear cache data
-        current_time = show_time_now()
-        error_msg = f"An error occurred while generating a response from OpenAI - at {current_time}: {error}\n"
-        write_log_to_file_txt("error_log.txt", error_msg)
-        return "system", "I'm sorry, I was unable to generate a response. Please try again later!"
-    
-    try:
-        choices_from_response_openai = response["choices"]
-    except KeyError: # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
-        current_time = show_time_now()
-        write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
-        return "system", "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
+def get_response_from_openai(user_input: str): # Define the function to get the response from the chat bot
+    CONVERSATIONS = []
+    def get_response():
+        nonlocal CONVERSATIONS
+        try: #Try to get the response from chatbot GPT-3.5-turbo
+            CONVERSATIONS.append({'role':'user', 'content':user_input})
+            response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596,top_p=0.8)
+            # raise openai.error.APIConnectionError("Connect to openai failed!")
+        except Exception as error:
+            CONVERSATIONS.clear() # Clear cache data
+            current_time = show_time_now()
+            error_msg = f"An error occurred while generating a response from OpenAI - at {current_time}: {error}\n"
+            write_log_to_file_txt("error_log.txt", error_msg)
+            return "system", "I'm sorry, I was unable to generate a response. Please try again later!"
         
-    return choices_from_response_openai[0].message.role, choices_from_response_openai[0].message.content
+        try:
+            choices_from_response_openai = response["choices"]
+        except KeyError: # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
+            current_time = show_time_now()
+            write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
+            return "system", "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
+            
+        if(len(CONVERSATIONS) > 10): # The chatbot remembers its last 5 questions and 5 answers 
+            CONVERSATIONS.clear()
+        role_reply = choices_from_response_openai[0].message.role.strip()
+        content_reply = choices_from_response_openai[0].message.content.strip()
+        CONVERSATIONS.append({'role':role_reply, 'content':content_reply})
+        return content_reply
     
-def chat_msg_handler(update: Update, context: CallbackContext): # Define the chat message handler
-    global CONVERSATIONS
-    message_text_from_user = update.message.text
-    role, reply_msg_from_openai = get_response(CONVERSATIONS, message_text_from_user)
-    reset_conversations()
-    CONVERSATIONS.append({'role':role.strip(), 'content':reply_msg_from_openai.strip()}) # The chat history is reset but the chat bot still remembers the last answer it gives you
+    return get_response
+ 
+def chat_handler(update: Update, context: CallbackContext): # Define the chat message handler
+    message_text_from_user = update.message.text.strip()
+    get_reply_from_openai = get_response_from_openai(message_text_from_user)
+    reply_msg_from_openai = get_reply_from_openai()
     update.message.reply_text(reply_msg_from_openai) # Send the response to the user
     new_conversation_to_write_to_file_text = f"User '@{update.message.from_user.username}': {message_text_from_user}\nChatbot GPT-3: {reply_msg_from_openai}\n"
     write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)  # Appending new conversation to the file history conversation
@@ -96,8 +97,8 @@ def main():
     dispatcher.add_handler(handler = end_command_handler)
     
     # Add the chat handler to the dispatcher
-    chat_handler = MessageHandler(Filters.text, chat_msg_handler)
-    dispatcher.add_handler(handler = chat_handler)
+    chat_msg_handler = MessageHandler(Filters.text, chat_handler)
+    dispatcher.add_handler(handler = chat_msg_handler)
 
     # Add the error handler to the dispatcher
     dispatcher.add_error_handler(error_handler)
