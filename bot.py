@@ -24,13 +24,17 @@ def write_log_to_file_txt(file_name: str, msg: str): # Function to open error_lo
     with open(file_name, "a") as file:
         file.write(msg)
 
+def reset_data(arr: list):
+    del arr[:-2]
+
+CONVERSATIONS = [] # History conversation
 def get_response_from_openai(user_input: str): # Define the function to get the response from the chat bot
-    CONVERSATIONS = []
     def get_response():
-        nonlocal CONVERSATIONS
+        global CONVERSATIONS
         try: #Try to get the response from chatbot GPT-3.5-turbo
             CONVERSATIONS.append({'role':'user', 'content':user_input})
-            response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596,top_p=0.8)
+            response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596, top_p=0.8)
+            reset_data(CONVERSATIONS) # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
             # raise openai.error.APIConnectionError("Connect to openai failed!")
         except Exception as error:
             CONVERSATIONS.clear() # Clear cache data
@@ -46,8 +50,6 @@ def get_response_from_openai(user_input: str): # Define the function to get the 
             write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
             return "system", "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
             
-        if(len(CONVERSATIONS) > 10): # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
-            del CONVERSATIONS[:-2]
         role_reply = choices_from_response_openai[0].message.role.strip()
         content_reply = choices_from_response_openai[0].message.content.strip()
         CONVERSATIONS.append({'role':role_reply, 'content':content_reply})
