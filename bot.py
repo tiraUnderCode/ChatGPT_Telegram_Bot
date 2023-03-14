@@ -46,8 +46,8 @@ def get_response_from_openai(user_input: str): # Define the function to get the 
             write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
             return "system", "I'm sorry, I was unable to extract a response from the OpenAI API. Please try again later!"
             
-        if(len(CONVERSATIONS) > 10): # The chatbot remembers its last 5 questions and 5 answers 
-            CONVERSATIONS.clear()
+        if(len(CONVERSATIONS) > 10): # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
+            del CONVERSATIONS[:-2]
         role_reply = choices_from_response_openai[0].message.role.strip()
         content_reply = choices_from_response_openai[0].message.content.strip()
         CONVERSATIONS.append({'role':role_reply, 'content':content_reply})
