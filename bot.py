@@ -29,7 +29,12 @@ def reset_data(arr: list):
 
 def clear_data(arr: list):
     arr.clear()
-
+    
+def handle_error(error_msg: str):
+    current_time = show_time_now()
+    err_msg = f"ERROR: An error occurred at {current_time}: {error_msg}\n"
+    write_log_to_file_txt("error_log.txt", err_msg)
+    
 CONVERSATIONS = [] # History conversation
 def get_response_from_openai(user_input: str): # Define the function to get the response from the chat bot
     def get_response():
@@ -39,11 +44,9 @@ def get_response_from_openai(user_input: str): # Define the function to get the 
             response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596, top_p=0.8)
             reset_data(CONVERSATIONS) # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
             # raise openai.error.APIConnectionError("Connect to openai failed!")
-        except Exception as error:
+        except Exception as error_msg:
             clear_data(CONVERSATIONS) # Clear cache data
-            current_time = show_time_now()
-            error_msg = f"An error occurred while generating a response from OpenAI - at {current_time}: {error}\n"
-            write_log_to_file_txt("error_log.txt", error_msg)
+            handle_error(error_msg)
             return "I'm sorry, I was unable to generate a response from OpenAI API. Please try again later!"
         
         try:
@@ -69,8 +72,8 @@ def chat_handler(update: Update, context: CallbackContext): # Define the chat me
     write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)  # Appending new conversation to the file history conversation
 
 def start_command(update: Update, context: CallbackContext): # Define the start command
-    update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today? '/help' for more info!")
     clear_data(CONVERSATIONS) # Clear cache data for a new conversation
+    update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today? '/help' for more info!")
     
 def help_command(update: Update, context: CallbackContext): # Define the help command
     update.message.reply_text("I am a bot that can help you with the following commands: \n /start - Start the bot \n /help - Get this message :))) \n /end - End talking with the bot \nYou just need to write your message and I'll give you a response!")
@@ -80,10 +83,8 @@ def end_command(update: Update, context: CallbackContext): # Define the end comm
     clear_data(CONVERSATIONS) # Clear cache data for ending conversation
     return ConversationHandler.END
     
-def error_handler(update: Update, context: CallbackContext): # Define the error handler
-    current_time = show_time_now()
-    error_msg = f"ERROR: {context.error} caused by {update} - at {current_time}"
-    write_log_to_file_txt("error_log.txt", error_msg)
+def error_handler(update: Update, context: CallbackContext): # Define the error handler for telegram chat bot
+    handle_error(context.error)
     
 # Define the main function
 def main():
