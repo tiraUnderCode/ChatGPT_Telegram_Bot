@@ -37,36 +37,32 @@ def handle_error(error_msg: str):
     
 CONVERSATIONS = [] # History conversation
 def get_response_from_openai(user_input: str): # Define the function to get the response from the chat bot
-    def get_response():
-        global CONVERSATIONS
-        try: #Try to get the response from chatbot GPT-3.5-turbo
-            CONVERSATIONS.append({'role':'user', 'content':user_input})
-            response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596, top_p=0.8)
-            reset_data(CONVERSATIONS) # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
-            # raise openai.error.APIConnectionError("Connect to openai failed!")
-        except Exception as error_msg:
-            clear_data(CONVERSATIONS) # Clear cache data
-            handle_error(error_msg)
-            return "I'm sorry, I was unable to generate a response from OpenAI API. Please try again later!"
+    global CONVERSATIONS
+    try: #Try to get the response from chatbot GPT-3.5-turbo
+        CONVERSATIONS.append({'role':'user', 'content':user_input})
+        response = openai.ChatCompletion.create(model=MODEL_ENGINE, messages=CONVERSATIONS, temperature=1.2, max_tokens=2596, top_p=0.8)
+        reset_data(CONVERSATIONS) # The chatbot remembers its last 5 questions and 5 answers and then just the last question and answer 
+        # raise openai.error.APIConnectionError("Connect to openai failed!")
+    except Exception as error_msg:
+        clear_data(CONVERSATIONS) # Clear cache data
+        handle_error(error_msg)
+        return "I'm sorry, I was unable to generate a response from OpenAI API. Please try again later!"
         
-        try:
-            choices_from_response_openai = response["choices"]
-            role_reply = choices_from_response_openai[0].message.role.strip()
-            content_reply = choices_from_response_openai[0].message.content.strip()
-            CONVERSATIONS.append({'role':role_reply, 'content':content_reply})
-            return content_reply
-        except KeyError: # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
-            current_time = show_time_now()
-            write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
-            clear_data(CONVERSATIONS) # Clear cache data
-            return "I'm sorry, I was unable to extract a response from OpenAI API. Please try again later!"
-    
-    return get_response
+    try:
+        choices_from_response_openai = response["choices"]
+        role_reply = choices_from_response_openai[0].message.role.strip()
+        content_reply = choices_from_response_openai[0].message.content.strip()
+        CONVERSATIONS.append({'role':role_reply, 'content':content_reply})
+        return content_reply
+    except KeyError: # The KeyError occurs when a key specified in a dictionary is not found in the dictionary.
+        current_time = show_time_now()
+        write_log_to_file_txt("error_log.txt", f"An error occurred while 'extracting' the response from OpenAI, not found key 'choices' - at {current_time}: {response}\n")
+        clear_data(CONVERSATIONS) # Clear cache data
+        return "I'm sorry, I was unable to extract a response from OpenAI API. Please try again later!"
  
 def chat_handler(update: Update, context: CallbackContext): # Define the chat message handler
     message_text_from_user = update.message.text.strip()
-    get_reply_from_openai = get_response_from_openai(message_text_from_user)
-    reply_msg_from_openai = get_reply_from_openai()
+    reply_msg_from_openai = get_response_from_openai(message_text_from_user)
     update.message.reply_text(reply_msg_from_openai) # Send the response to the user
     new_conversation_to_write_to_file_text = f"User '@{update.message.from_user.username}': {message_text_from_user}\nChatbot GPT-3: {reply_msg_from_openai}\n"
     write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)  # Appending new conversation to the file history conversation
