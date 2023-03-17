@@ -72,15 +72,17 @@ def chat_handler(update: Update, context: CallbackContext): # Define the chat me
     write_log_to_file_txt("history_conversation.txt", new_conversation_to_write_to_file_text)  # Appending new conversation to the file history conversation
 
 def start_command(update: Update, context: CallbackContext): # Define the start command
-    clear_data(CONVERSATIONS) # Clear cache data for a new conversation
+    global get_reply_from_openai
+    get_reply_from_openai = get_response_from_openai()
     update.message.reply_text("Hi, I am a simple A.I chat bot! How can I help you today? '/help' for more info!")
     
 def help_command(update: Update, context: CallbackContext): # Define the help command
     update.message.reply_text("I am a bot that can help you with the following commands: \n /start - Start the bot \n /help - Get this message :))) \n /end - End talking with the bot \nYou just need to write your message and I'll give you a response!")
     
 def end_command(update: Update, context: CallbackContext): # Define the end command to end the conversation
+    global get_reply_from_openai
     update.message.reply_text("Bye! I hope we can talk again soon!")
-    clear_data(CONVERSATIONS) # Clear cache data for a new conversation
+    get_reply_from_openai = get_response_from_openai()
     return ConversationHandler.END
     
 def error_handler(update: Update, context: CallbackContext): # Define the error handler for telegram chat bot
